@@ -1,4 +1,4 @@
 # infa_2020_bondoge
 
-hw for python course
-sfd
+hw for python course \n
+dfg
