@@ -1,0 +1,293 @@
+import math
+from random import choice
+from random import randrange
+import pygame
+
+
+FPS = 30
+
+RED = 0xFF0000
+BLUE = 0x0000FF
+YELLOW = 0xFFC91F
+GREEN = 0x00FF00
+MAGENTA = 0xFF03B8
+CYAN = 0x00FFCC
+BLACK = (0, 0, 0)
+WHITE = 0xFFFFFF
+GREY = 0x7D7D7D
+GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
+
+WIDTH = 800
+HEIGHT = 600
+MARGIN = 15
+
+
+class Ball:
+    def __init__(self, screen: pygame.Surface, x=40, y=450):
+        """ Конструктор класса ball
+
+        Args:
+        x - начальное положение мяча по горизонтали
+        y - начальное положение мяча по вертикали
+        """
+        self.screen = screen
+        self.x = x
+        self.y = y
+        self.r = 10
+        self.vx = 0
+        self.vy = 0
+        self.color = choice(GAME_COLORS)
+        self.live = 30
+        self.timeInFlight = 0
+        self.dumping = 0.8
+        self.friction = 0.9
+        self.laytime = 0
+
+    def move(self):
+        """Переместить мяч по прошествии единицы времени.
+
+        Метод описывает перемещение мяча за один кадр перерисовки. То есть, обновляет значения
+        self.x и self.y с учетом скоростей self.vx и self.vy, силы гравитации, действующей на мяч,
+        и стен по краям окна (размер окна 800х600).
+        """
+        self.vy -= 0.5 * self.timeInFlight
+        if self.y < (HEIGHT - 4):
+            self.timeInFlight += 1
+
+        # FIXME
+        self.x += self.vx
+        self.y -= self.vy
+
+        if ((self.x <= 0 + MARGIN) and (self.vx < 0)):
+            self.x = 0 + MARGIN
+            self.vx = - self.vx * self.dumping
+
+        if ((self.x >= WIDTH - MARGIN) and (self.vx > 0)):
+            self.x = WIDTH - MARGIN
+            self.vx = - self.vx * self.dumping
+
+        if ((self.y <= 0 + MARGIN) and (self.vy > 0)):
+            self.y = 0 + MARGIN
+            self.vy = - self.vy * self.dumping
+
+        if ((self.y >= HEIGHT - MARGIN) and (self.vy < 0)):
+            self.y = HEIGHT - MARGIN
+            self.vy = - self.vy * self.dumping
+
+        if (self.y == HEIGHT - MARGIN):
+            self.vx *= self.friction
+            if abs(self.vy) <= 1:
+                self.vy = 0
+            if abs(self.vx) <= 1:
+                self.vx = 0
+
+    def draw(self):
+        pygame.draw.circle(
+            self.screen,
+            self.color,
+            (self.x, self.y),
+            self.r
+        )
+
+    def hittest(self, obj):
+        """Функция проверяет сталкивалкивается ли данный обьект с целью, описываемой в обьекте obj.
+
+        Args:
+            obj: Обьект, с которым проверяется столкновение.
+        Returns:
+            Возвращает True в случае столкновения мяча и цели. В противном случае возвращает False.
+        """
+        # FIXME
+        x = obj.x - self.x
+        y = obj.y - self.y
+        if math.sqrt(x**2 + y**2) <= (self.r + obj.r):
+            return True
+        else:
+            return False
+
+
+class Gun:
+    def __init__(self, screen, x = 40, y = 450):
+        self.screen = screen
+        self.f2_power = 10
+        self.f2_on = 0
+        self.an = 1
+        self.color = BLACK
+        self.shots1 = 0
+        self.shots2 = 0
+
+        # self.form = pygame.Rect(40, 450, 7)
+        self.x = x
+        self.y = y
+        self.len = 40
+        self.width = 30
+        self.w = 30
+        self.points = ((self.x, self.y + self.width/2), (self.x, self.y - self.width/2), (self.x + self.len, self.y - self.width/2), (self.x + self.len, self.y + self.width/2))
+
+    def fire2_start(self, event):
+        self.f2_on = 1       
+
+    def fire2_end(self, event):
+        """Выстрел мячом.
+
+        Происходит при отпускании кнопки мыши.
+        Начальные значения компонент скорости мяча vx и vy зависят от положения мыши.
+        """
+        global balls, bullet
+        bullet += 1
+        new_ball = Ball(self.screen)
+        new_ball.r += 5
+        self.an = math.atan2((event.pos[1]-new_ball.y), (event.pos[0]-new_ball.x))
+        new_ball.vx = self.f2_power * math.cos(self.an)
+        new_ball.vy = - self.f2_power * math.sin(self.an)
+        balls.append(new_ball)
+        self.f2_on = 0
+        self.f2_power = 10
+        self.w = 30
+        self.len = 40
+        self.shots1 += 1
+        self.shots2 += 1
+
+    def targetting(self, event):
+        """Прицеливание. Зависит от положения мыши."""
+        if event:
+            self.an = math.atan((event.pos[1]-450) / (event.pos[0]-20))
+        if self.f2_on:
+            self.color = RED
+        else:
+            self.color = GREY
+
+    def draw(self):
+        # FIXIT don't know how to do it
+        self.points = ((self.x + math.sin(self.an) * self.w/2, self.y - math.cos(self.an) * self.w/2),
+                       (self.x - math.sin(self.an) * self.w/2, self.y + math.cos(self.an) * self.w/2),
+                       (40 + math.cos(self.an) * self.len - (math.sin(self.an) * self.width/2), 450 + math.sin(self.an) * self.len + (math.cos(self.an) * self.width/2)),
+                       (40 + math.cos(self.an) * self.len + (math.sin(self.an) * self.width/2), 450 + math.sin(self.an) * self.len - (math.cos(self.an) * self.width/2))
+                       )
+
+        pygame.draw.polygon(
+            self.screen,
+            self.color,
+            self.points
+        )
+
+        pygame.draw.circle(
+            self.screen,
+            self.color,
+            (self.x, self.y),
+            self.w/2
+        )
+
+    def power_up(self):
+        if self.f2_on:
+            if self.f2_power < 100:
+                self.f2_power += 2
+                self.w += 1/2
+            self.color = (2 * self.f2_power, 0, 0)
+        else:
+            self.color = BLACK
+
+
+class Target:
+    def __init__(self, screen):
+        self.screen = screen
+        self.color = RED
+        self.points = 0
+        self.live = 1
+        self.x = randrange(600, 780)
+        self.y = randrange(300, 550)
+        self.r = randrange(10, 50)
+        
+    # FIXME: don't work!!! How to call this functions when object is created?
+    # self.new_target()
+
+    def new_target(self):
+        """ Инициализация новой цели. """
+        self.x = randrange(600, 780)
+        self.y = randrange(300, 550)
+        self.r = randrange(10, 50)
+        self.color = RED
+        self.live = 1
+
+    def hit(self, points=1):
+        """Попадание шарика в цель."""
+        self.points += points
+
+    def draw(self):
+        pygame.draw.circle(
+            self.screen,
+            self.color,
+            (self.x, self.y),
+            self.r
+        )
+
+
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+bullet = 0
+balls = []
+pygame.font.init()
+font = pygame.font.SysFont('Comic Sans MS', 30)
+textSurface2 = font.render('', False, BLACK)
+
+clock = pygame.time.Clock()
+gun = Gun(screen)
+target = Target(screen)
+target2 = Target(screen)
+finished = False
+
+while not finished:
+    screen.fill((0, 95, 137))
+    textSurface = font.render('points:' + str(target.points + target2.points), False, (0, 0, 0))
+    screen.blit(textSurface, (0,0))
+
+    text_rect = textSurface2.get_rect(center=(WIDTH/2, HEIGHT/2))
+    screen.blit(textSurface2, text_rect)
+
+    gun.draw()
+    target.draw()
+    target2.draw()
+    for b in balls:
+        b.laytime += 1
+        if b.laytime >= 150:
+            balls.remove(b)
+        b.draw()
+    pygame.display.update()
+
+    clock.tick(FPS)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            finished = True
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            textSurface2 = font.render('', False, BLACK)
+            gun.fire2_start(event)
+        elif event.type == pygame.MOUSEBUTTONUP:
+            gun.fire2_end(event)
+        elif event.type == pygame.MOUSEMOTION:
+            gun.targetting(event)
+
+    for b in balls:
+        b.move()
+        if b.hittest(target) and target.live and gun.shots1 > 0:
+            target.live = 0
+            target.hit()
+            if gun.shots1 == 1: s = ' shot'
+            else: s = ' shots'
+            textSurface2 = font.render('You\'ve destroyed the target in ' + str(min(gun.shots1, gun.shots2)) + s, False, BLACK)
+            gun.shots1 = 0
+            target.new_target()
+
+        if b.hittest(target2) and target2.live and gun.shots2 > 0:
+            target2.live = 0
+            target2.hit()
+            if gun.shots2 == 1: s = ' shot'
+            else: s = ' shots'
+            textSurface2 = font.render('You\'ve destroyed the target in ' + str(min(gun.shots1, gun.shots2)) + s, False, BLACK)
+            gun.shots2 = 0
+            target2.new_target()
+        if (gun.shots1 == 0) and (gun.shots2 == 0):
+            textSurface2 = font.render('2 in 1!', False, BLACK)
+
+    gun.power_up()
+
+pygame.quit()
